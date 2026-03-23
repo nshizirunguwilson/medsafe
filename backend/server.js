@@ -38,6 +38,38 @@ function fdaParams(extra = {}) {
   return params;
 }
 
+// ─── 1. Drug Info (RapidAPI) ───
+app.get('/api/drug-info', async (req, res) => {
+  const { query } = req.query;
+  if (!query || query.trim().length < 2) {
+    return res.status(400).json({ error: 'Search query must be at least 2 characters.' });
+  }
+
+  try {
+    const response = await axios.get(`https://${RAPIDAPI_HOST}/1/druginfo`, {
+      headers: rapidHeaders(),
+      params: { drug: query.trim() },
+      timeout: 10000
+    });
+
+    const results = response.data;
+    if (!results || (Array.isArray(results) && results.length === 0)) {
+      return res.json({ results: [], message: 'No drug information found.' });
+    }
+
+    res.json({ results: Array.isArray(results) ? results : [results] });
+  } catch (err) {
+    if (err.response?.status === 404) {
+      return res.json({ results: [], message: 'No drug information found for this query.' });
+    }
+    if (err.response?.status === 429) {
+      return res.status(429).json({ error: 'API rate limit reached. Please try again shortly.' });
+    }
+    console.error('Drug info error:', err.message);
+    res.status(502).json({ error: 'Unable to fetch drug information. The service may be temporarily unavailable.' });
+  }
+});
+
 // ─── Health check ───
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', server: SERVER_ID, timestamp: new Date().toISOString() });
