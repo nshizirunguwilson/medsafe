@@ -67,6 +67,7 @@ app.get('/api/drug-info', async (req, res) => {
     }
     console.error('Drug info error:', err.message);
     res.status(502).json({ error: 'Unable to fetch drug information. The service may be temporarily unavailable.' });
+  }
 });
 
 // ─── 2. Adverse Events (OpenFDA) ───
@@ -118,6 +119,35 @@ app.get('/api/adverse-events', async (req, res) => {
     }
     console.error('Adverse events error:', err.message);
     res.status(502).json({ error: 'Unable to fetch adverse event data.' });
+});
+
+// ─── 3. Drug Labels (OpenFDA) ───
+app.get('/api/drug-labels', async (req, res) => {
+  const { query, limit = 5 } = req.query;
+  if (!query || query.trim().length < 2) {
+    return res.status(400).json({ error: 'Search query must be at least 2 characters.' });
+  }
+
+  try {
+    const search = `openfda.brand_name:"${query.trim()}"+openfda.generic_name:"${query.trim()}"`;
+    const response = await axios.get(`${OPENFDA_BASE}/drug/label.json`, {
+      params: fdaParams({ search, limit: Math.min(Number(limit), 25) }),
+      timeout: 10000
+    });
+
+    res.json({
+      results: response.data.results || [],
+      meta: response.data.meta || {}
+    });
+  } catch (err) {
+    if (err.response?.status === 404) {
+      return res.json({ results: [], meta: {}, message: 'No drug labels found.' });
+    }
+    if (err.response?.status === 429) {
+      return res.status(429).json({ error: 'OpenFDA rate limit reached. Please wait and try again.' });
+    }
+    console.error('Drug labels error:', err.message);
+    res.status(502).json({ error: 'Unable to fetch drug label data.' });
 
 // ─── Health check ───
 app.get('/api/health', (req, res) => {
