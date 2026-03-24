@@ -67,8 +67,57 @@ app.get('/api/drug-info', async (req, res) => {
     }
     console.error('Drug info error:', err.message);
     res.status(502).json({ error: 'Unable to fetch drug information. The service may be temporarily unavailable.' });
-  }
 });
+
+// ─── 2. Adverse Events (OpenFDA) ───
+app.get('/api/adverse-events', async (req, res) => {
+  const { query, serious, date_start, date_end, limit = 10, skip = 0, count_field } = req.query;
+  if (!query || query.trim().length < 2) {
+    return res.status(400).json({ error: 'Search query must be at least 2 characters.' });
+  }
+
+  try {
+    let searchParts = [`patient.drug.openfda.brand_name:"${query.trim()}"+patient.drug.openfda.generic_name:"${query.trim()}"`];
+
+    if (serious && serious !== 'all') {
+      searchParts.push(`serious:${serious}`);
+    }
+
+    if (date_start || date_end) {
+      const start = date_start ? date_start.replace(/-/g, '') : '19000101';
+      const end = date_end ? date_end.replace(/-/g, '') : '20991231';
+      searchParts.push(`receivedate:[${start}+TO+${end}]`);
+    }
+
+    const search = searchParts.join('+AND+');
+
+    // If count_field is provided, return aggregated counts
+    if (count_field) {
+      const response = await axios.get(`${OPENFDA_BASE}/drug/event.json`, {
+        params: fdaParams({ search, count: count_field }),
+        timeout: 10000
+      });
+      return res.json({ counts: response.data.results || [] });
+    }
+
+    const response = await axios.get(`${OPENFDA_BASE}/drug/event.json`, {
+      params: fdaParams({ search, limit: Math.min(Number(limit), 100), skip: Number(skip) }),
+      timeout: 10000
+    });
+
+    res.json({
+      results: response.data.results || [],
+      meta: response.data.meta || {}
+    });
+  } catch (err) {
+    if (err.response?.status === 404) {
+      return res.json({ results: [], meta: {}, message: 'No adverse events found.' });
+    }
+    if (err.response?.status === 429) {
+      return res.status(429).json({ error: 'OpenFDA rate limit reached. Please wait and try again.' });
+    }
+    console.error('Adverse events error:', err.message);
+    res.status(502).json({ error: 'Unable to fetch adverse event data.' });
 
 // ─── Health check ───
 app.get('/api/health', (req, res) => {
