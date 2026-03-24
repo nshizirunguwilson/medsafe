@@ -101,7 +101,7 @@ On each web server:
 ```bash
 # Clone the repository
 cd /home/$USER
-git clone https://github.com/<your-username>/medsafe.git
+git clone https://github.com/nshizirunguwilson/medsafe.git
 cd medsafe/backend
 
 # Install dependencies
