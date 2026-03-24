@@ -297,3 +297,516 @@ a:hover {
 .tab-panel.active {
   display: block;
 }
+
+/* ─── Panel Toolbar (Filters) ─── */
+.panel-toolbar {
+  display: flex;
+  align-items: flex-end;
+  gap: 16px;
+  padding: 16px 20px;
+  background: var(--slate-50);
+  border: 1px solid var(--border-light);
+  border-radius: 20px;
+  margin-bottom: 20px;
+  flex-wrap: wrap;
+}
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.filter-label {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.filter-select,
+.filter-date {
+  font-family: var(--font);
+  font-size: 0.85rem;
+  padding: 7px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #fff;
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color var(--transition);
+}
+.filter-select:focus,
+.filter-date:focus {
+  border-color: var(--blue-500);
+}
+.filter-apply-btn {
+  padding: 7px 18px;
+  background: var(--slate-800);
+  color: #fff;
+  border: none;
+  border-radius: 12px;
+  font-family: var(--font);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition);
+}
+.filter-apply-btn:hover {
+  background: var(--slate-900);
+}
+
+/* ─── Empty / Loading / Error States ─── */
+.empty-state,
+.error-state {
+  padding: 48px 24px;
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 0.95rem;
+}
+.error-state {
+  color: var(--red-600);
+  background: var(--red-50);
+  border-radius: 20px;
+  border: 1px solid var(--red-100);
+}
+
+.loader {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 48px 24px;
+  gap: 6px;
+}
+.loader-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--blue-500);
+  animation: loader-pulse 1s ease-in-out infinite;
+}
+.loader-dot:nth-child(2) { animation-delay: 0.15s; }
+.loader-dot:nth-child(3) { animation-delay: 0.3s; }
+
+@keyframes loader-pulse {
+  0%, 80%, 100% { opacity: 0.2; transform: scale(0.8); }
+  40% { opacity: 1; transform: scale(1); }
+}
+
+/* ─── Drug Info Cards ─── */
+.drug-info-grid {
+  display: grid;
+  gap: 16px;
+}
+.drug-card {
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: #fff;
+  overflow: hidden;
+}
+.drug-card-header {
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--border-light);
+}
+.drug-card-brand {
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  letter-spacing: -0.01em;
+}
+.drug-card-generic {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-top: 2px;
+}
+.drug-card-body {
+  padding: 16px 24px 20px;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+}
+.drug-detail {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.drug-detail-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--text-tertiary);
+}
+.drug-detail-value {
+  font-size: 0.9rem;
+  color: var(--text-primary);
+  line-height: 1.45;
+}
+
+/* ─── Adverse Events Table ─── */
+.ae-table-wrap {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: #fff;
+}
+.ae-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.85rem;
+}
+.ae-table th {
+  text-align: left;
+  padding: 12px 16px;
+  font-weight: 600;
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-secondary);
+  background: var(--slate-50);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+  cursor: pointer;
+  user-select: none;
+}
+.ae-table th:hover {
+  color: var(--text-primary);
+}
+.ae-table th .sort-arrow {
+  margin-left: 4px;
+  opacity: 0.4;
+}
+.ae-table th.sorted .sort-arrow {
+  opacity: 1;
+  color: var(--blue-600);
+}
+.ae-table td {
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border-light);
+  color: var(--text-primary);
+  vertical-align: top;
+}
+.ae-table tr:last-child td {
+  border-bottom: none;
+}
+.ae-table tr:hover td {
+  background: var(--blue-50);
+}
+
+/* Badges */
+.badge {
+  display: inline-block;
+  padding: 2px 9px;
+  border-radius: 20px;
+  font-size: 0.73rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.badge-serious {
+  background: var(--red-100);
+  color: var(--red-700);
+}
+.badge-non-serious {
+  background: var(--green-100);
+  color: var(--green-600);
+}
+.badge-class-i {
+  background: var(--red-100);
+  color: var(--red-700);
+}
+.badge-class-ii {
+  background: var(--amber-100);
+  color: var(--amber-600);
+}
+.badge-class-iii {
+  background: var(--green-100);
+  color: var(--green-600);
+}
+.badge-ongoing {
+  background: var(--amber-100);
+  color: var(--amber-600);
+}
+.badge-completed {
+  background: var(--green-100);
+  color: var(--green-600);
+}
+.badge-terminated {
+  background: var(--slate-100);
+  color: var(--slate-600);
+}
+
+/* ─── Reactions list ─── */
+.reactions-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+.reaction-tag {
+  font-size: 0.76rem;
+  padding: 2px 8px;
+  background: var(--blue-50);
+  color: var(--blue-700);
+  border-radius: 4px;
+}
+
+/* ─── Drug Labels (Accordion) ─── */
+.label-card {
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: #fff;
+  margin-bottom: 12px;
+  overflow: hidden;
+}
+.label-card-header {
+  padding: 18px 24px;
+  border-bottom: 1px solid var(--border-light);
+}
+.label-card-name {
+  font-size: 1.05rem;
+  font-weight: 700;
+}
+.label-sections {
+  padding: 8px 0;
+}
+.label-accordion {
+  border-bottom: 1px solid var(--border-light);
+}
+.label-accordion:last-child {
+  border-bottom: none;
+}
+.label-accordion-trigger {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 14px 24px;
+  background: none;
+  border: none;
+  font-family: var(--font);
+  font-size: 0.88rem;
+  font-weight: 600;
+  color: var(--text-primary);
+  cursor: pointer;
+  text-align: left;
+  transition: background var(--transition);
+}
+.label-accordion-trigger:hover {
+  background: var(--slate-50);
+}
+.label-accordion-chevron {
+  width: 16px;
+  height: 16px;
+  color: var(--text-tertiary);
+  transition: transform var(--transition);
+  flex-shrink: 0;
+}
+.label-accordion.open .label-accordion-chevron {
+  transform: rotate(180deg);
+}
+.label-accordion-body {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 250ms ease;
+}
+.label-accordion.open .label-accordion-body {
+  grid-template-rows: 1fr;
+}
+.label-accordion-inner {
+  overflow: hidden;
+}
+.label-accordion-text {
+  padding: 0 24px 18px;
+  font-size: 0.88rem;
+  color: var(--slate-600);
+  line-height: 1.65;
+}
+
+/* ─── Recall Cards ─── */
+.recall-list {
+  display: grid;
+  gap: 12px;
+}
+.recall-card {
+  border: 1px solid var(--border);
+  border-radius: 20px;
+  background: #fff;
+  padding: 20px 24px;
+}
+.recall-card-top {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+.recall-card-number {
+  font-size: 0.82rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+.recall-card-reason {
+  font-size: 0.92rem;
+  color: var(--text-primary);
+  line-height: 1.55;
+  margin-bottom: 12px;
+}
+.recall-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+.recall-meta-item strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+/* ─── Top Reactions Summary ─── */
+.ae-summary {
+  margin-bottom: 20px;
+  padding: 16px 20px;
+  background: var(--blue-50);
+  border: 1px solid var(--blue-100);
+  border-radius: 20px;
+}
+.ae-summary-title {
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--blue-700);
+  margin-bottom: 10px;
+}
+.ae-bar-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ae-bar-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.82rem;
+}
+.ae-bar-label {
+  width: 160px;
+  flex-shrink: 0;
+  color: var(--text-primary);
+  font-weight: 500;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.ae-bar-track {
+  flex: 1;
+  height: 8px;
+  background: var(--blue-100);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.ae-bar-fill {
+  height: 100%;
+  background: var(--blue-500);
+  border-radius: 4px;
+  transition: width 400ms ease;
+}
+.ae-bar-count {
+  width: 48px;
+  text-align: right;
+  font-weight: 600;
+  color: var(--text-secondary);
+  font-size: 0.78rem;
+}
+
+/* ─── Pagination ─── */
+.pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 24px;
+}
+.pagination-btn {
+  padding: 7px 14px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: #fff;
+  font-family: var(--font);
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--text-primary);
+  cursor: pointer;
+  transition: background var(--transition), border-color var(--transition);
+}
+.pagination-btn:hover {
+  background: var(--slate-50);
+  border-color: var(--slate-300);
+}
+.pagination-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+.pagination-info {
+  font-size: 0.82rem;
+  color: var(--text-secondary);
+  padding: 0 8px;
+}
+
+/* ─── Footer ─── */
+.footer {
+  border-top: 1px solid var(--border);
+  padding: 24px;
+  text-align: center;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+  margin-top: auto;
+}
+.footer-inner {
+  max-width: 1120px;
+  margin: 0 auto;
+}
+.footer-disclaimer {
+  margin-top: 6px;
+  font-size: 0.75rem;
+  color: var(--text-tertiary);
+}
+
+/* ─── Responsive ─── */
+@media (max-width: 768px) {
+  .header-tagline {
+    display: none;
+  }
+  .search-section {
+    padding: 36px 16px 44px;
+  }
+  .results-section {
+    padding: 0 16px 48px;
+  }
+  .tab {
+    padding: 10px 14px;
+    font-size: 0.82rem;
+  }
+  .panel-toolbar {
+    flex-direction: column;
+    align-items: stretch;
+    gap: 12px;
+  }
+  .drug-card-body {
+    grid-template-columns: 1fr;
+  }
+  .ae-bar-label {
+    width: 100px;
+  }
+}
+
+@media (max-width: 480px) {
+  .tab svg {
+    display: none;
+  }
+  .search-input-wrap {
+    flex-wrap: wrap;
+  }
+  .search-btn {
+    width: 100%;
+  }
+}
