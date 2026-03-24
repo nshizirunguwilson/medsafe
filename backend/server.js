@@ -119,6 +119,7 @@ app.get('/api/adverse-events', async (req, res) => {
     }
     console.error('Adverse events error:', err.message);
     res.status(502).json({ error: 'Unable to fetch adverse event data.' });
+  }
 });
 
 // ─── 3. Drug Labels (OpenFDA) ───
@@ -148,6 +149,47 @@ app.get('/api/drug-labels', async (req, res) => {
     }
     console.error('Drug labels error:', err.message);
     res.status(502).json({ error: 'Unable to fetch drug label data.' });
+  }
+});
+
+// ─── 4. Recalls / Enforcement (OpenFDA) ───
+app.get('/api/recalls', async (req, res) => {
+  const { query, status, classification, limit = 10 } = req.query;
+  if (!query || query.trim().length < 2) {
+    return res.status(400).json({ error: 'Search query must be at least 2 characters.' });
+  }
+
+  try {
+    let searchParts = [`product_description:"${query.trim()}"+openfda.brand_name:"${query.trim()}"+openfda.generic_name:"${query.trim()}"`];
+
+    if (status && status !== 'all') {
+      searchParts.push(`status:"${status}"`);
+    }
+    if (classification && classification !== 'all') {
+      searchParts.push(`classification:"${classification}"`);
+    }
+
+    const search = searchParts.join('+AND+');
+    const response = await axios.get(`${OPENFDA_BASE}/drug/enforcement.json`, {
+      params: fdaParams({ search, limit: Math.min(Number(limit), 100), sort: 'recall_initiation_date:desc' }),
+      timeout: 10000
+    });
+
+    res.json({
+      results: response.data.results || [],
+      meta: response.data.meta || {}
+    });
+  } catch (err) {
+    if (err.response?.status === 404) {
+      return res.json({ results: [], meta: {}, message: 'No recalls found for this drug.' });
+    }
+    if (err.response?.status === 429) {
+      return res.status(429).json({ error: 'OpenFDA rate limit reached. Please wait and try again.' });
+    }
+    console.error('Recalls error:', err.message);
+    res.status(502).json({ error: 'Unable to fetch recall data.' });
+  }
+});
 
 // ─── Health check ───
 app.get('/api/health', (req, res) => {
