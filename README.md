@@ -47,7 +47,7 @@ MedSafe is a web application that lets users search for any drug and instantly v
 
 1. **Clone the repository:**
    ```bash
-   git clone https://github.com/<your-username>/medsafe.git
+   git clone https://github.com/nshizirunguwilson/medsafe.git
    cd medsafe
    ```
 
