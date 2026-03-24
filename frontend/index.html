@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MedSafe | Drug Safety Intelligence</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <!-- Header -->
+  <header class="header">
+    <div class="header-inner">
+      <a href="/" class="logo">
+        <svg class="logo-icon" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="2" y="2" width="24" height="24" rx="6" stroke="currentColor" stroke-width="2.2"/>
+          <path d="M14 8v12M8 14h12" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>
+        </svg>
+        <span class="logo-text">MedSafe</span>
+      </a>
+      <p class="header-tagline">Drug Safety Intelligence</p>
+    </div>
+  </header>
+
+  <!-- Search -->
+  <section class="search-section">
+    <div class="search-wrapper">
+      <h1 class="search-heading">Look up any drug</h1>
+      <p class="search-sub">Search by brand name, generic name, or active ingredient</p>
+      <form id="searchForm" class="search-form" autocomplete="off">
+        <div class="search-input-wrap">
+          <svg class="search-icon" viewBox="0 0 20 20" fill="none">
+            <circle cx="8.5" cy="8.5" r="5.75" stroke="currentColor" stroke-width="1.8"/>
+            <path d="M13 13l4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          </svg>
+          <input
+            type="text"
+            id="searchInput"
+            class="search-input"
+            placeholder="e.g. Ibuprofen, Lipitor, Metformin…"
+            minlength="2"
+            required
+          >
+          <button type="submit" class="search-btn">Search</button>
+        </div>
+        <div id="searchError" class="search-error" hidden></div>
+      </form>
+    </div>
+  </section>
+
+  <!-- Results -->
+  <main id="resultsSection" class="results-section" hidden>
+    <div class="results-inner">
+      <div class="results-header">
+        <h2 class="results-title">Results for <span id="resultsQuery"></span></h2>
+      </div>
+
+      <!-- Tabs -->
+      <nav class="tabs" role="tablist">
+        <button class="tab active" role="tab" aria-selected="true" data-tab="drug-info">
+          <svg viewBox="0 0 18 18" fill="none"><rect x="2" y="3" width="14" height="12" rx="2" stroke="currentColor" stroke-width="1.5"/><path d="M6 7h6M6 10h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          Drug Info
+        </button>
+        <button class="tab" role="tab" aria-selected="false" data-tab="adverse-events">
+          <svg viewBox="0 0 18 18" fill="none"><path d="M9 2l7 13H2L9 2z" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round"/><path d="M9 7v3M9 12.5v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          Adverse Events
+        </button>
+        <button class="tab" role="tab" aria-selected="false" data-tab="drug-labels">
+          <svg viewBox="0 0 18 18" fill="none"><path d="M4 2h7l4 4v10a1 1 0 01-1 1H4a1 1 0 01-1-1V3a1 1 0 011-1z" stroke="currentColor" stroke-width="1.5"/><path d="M11 2v4h4" stroke="currentColor" stroke-width="1.5"/><path d="M6 9h6M6 12h4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          Drug Labels
+        </button>
+        <button class="tab" role="tab" aria-selected="false" data-tab="recalls">
+          <svg viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="7" stroke="currentColor" stroke-width="1.5"/><path d="M9 5v5M9 12.5v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+          Recalls
+        </button>
+      </nav>
+
+      <!-- Tab Panels -->
+      <div class="tab-panels">
+
+        <!-- Drug Info Panel -->
+        <div id="panel-drug-info" class="tab-panel active" role="tabpanel">
+          <div id="drugInfoContent" class="panel-content">
+            <div class="empty-state">
+              <p>Search for a drug to see detailed information.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Adverse Events Panel -->
+        <div id="panel-adverse-events" class="tab-panel" role="tabpanel">
+          <div class="panel-toolbar">
+            <div class="filter-group">
+              <label class="filter-label" for="severityFilter">Severity</label>
+              <select id="severityFilter" class="filter-select">
+                <option value="all">All reports</option>
+                <option value="1">Serious only</option>
+                <option value="2">Non-serious only</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label class="filter-label" for="dateStart">From</label>
+              <input type="date" id="dateStart" class="filter-date">
+            </div>
+            <div class="filter-group">
+              <label class="filter-label" for="dateEnd">To</label>
+              <input type="date" id="dateEnd" class="filter-date">
+            </div>
+            <div class="filter-group">
+              <label class="filter-label" for="aeSort">Sort by</label>
+              <select id="aeSort" class="filter-select">
+                <option value="date-desc">Date (newest)</option>
+                <option value="date-asc">Date (oldest)</option>
+                <option value="serious-first">Serious first</option>
+              </select>
+            </div>
+            <button id="applyAeFilters" class="filter-apply-btn">Apply</button>
+          </div>
+          <div id="adverseEventsContent" class="panel-content">
+            <div class="empty-state">
+              <p>Search for a drug to view adverse event reports.</p>
+            </div>
+          </div>
+          <div id="aePagination" class="pagination" hidden></div>
+        </div>
+
+        <!-- Drug Labels Panel -->
+        <div id="panel-drug-labels" class="tab-panel" role="tabpanel">
+          <div id="drugLabelsContent" class="panel-content">
+            <div class="empty-state">
+              <p>Search for a drug to view labeling information.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Recalls Panel -->
+        <div id="panel-recalls" class="tab-panel" role="tabpanel">
+          <div class="panel-toolbar">
+            <div class="filter-group">
+              <label class="filter-label" for="recallStatus">Status</label>
+              <select id="recallStatus" class="filter-select">
+                <option value="all">All</option>
+                <option value="Ongoing">Ongoing</option>
+                <option value="Completed">Completed</option>
+                <option value="Terminated">Terminated</option>
+              </select>
+            </div>
+            <div class="filter-group">
+              <label class="filter-label" for="recallClass">Classification</label>
+              <select id="recallClass" class="filter-select">
+                <option value="all">All</option>
+                <option value="Class I">Class I (dangerous)</option>
+                <option value="Class II">Class II (may cause harm)</option>
+                <option value="Class III">Class III (unlikely harm)</option>
+              </select>
+            </div>
+            <button id="applyRecallFilters" class="filter-apply-btn">Apply</button>
+          </div>
+          <div id="recallsContent" class="panel-content">
+            <div class="empty-state">
+              <p>Search for a drug to check for recalls.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <!-- Footer -->
+  <footer class="footer">
+    <div class="footer-inner">
+      <p>Data from <a href="https://open.fda.gov/apis/" target="_blank" rel="noopener">OpenFDA</a> and <a href="https://rapidapi.com/rnelsomain/api/drug-info-and-price-history" target="_blank" rel="noopener">Drug Info and Price History API</a>.</p>
+      <p class="footer-disclaimer">This tool is for educational purposes only. Always consult a healthcare professional.</p>
+    </div>
+  </footer>
+
+  <script src="/app.js"></script>
+</body>
+</html>
