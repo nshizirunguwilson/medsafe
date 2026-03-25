@@ -968,6 +968,23 @@ a:hover {
   background: var(--red-50);
   color: var(--red-600);
 }
+.scan-again-btn {
+  display: inline-block;
+  margin-top: 8px;
+  padding: 6px 16px;
+  background: var(--blue-500);
+  color: #fff;
+  border: none;
+  border-radius: 8px;
+  font-family: var(--font);
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background var(--transition);
+}
+.scan-again-btn:hover {
+  background: var(--blue-600);
+}
 
 /* ─── Responsive ─── */
 @media (max-width: 768px) {

@@ -654,21 +654,25 @@
     }
   }
 
-  function showBarcodeStatus(msg, type) {
+  function showBarcodeStatus(msg, type, showScanAgain = false) {
     barcodeLookupStatus.hidden = false;
-    barcodeLookupStatus.textContent = msg;
     barcodeLookupStatus.className = 'barcode-status ' + type;
+    if (showScanAgain) {
+      barcodeLookupStatus.innerHTML = msg + ' <button class="scan-again-btn" onclick="document.querySelector(\'[data-btab=scan]\').click()">Scan Again</button>';
+    } else {
+      barcodeLookupStatus.textContent = msg;
+    }
   }
 
   async function lookupBarcode(code) {
-    showBarcodeStatus('Looking up barcode...', 'loading');
+    showBarcodeStatus(`Looking up code ${code}...`, 'loading');
 
     try {
       const res = await fetch(`/api/barcode-lookup?code=${encodeURIComponent(code)}`);
       const data = await res.json();
 
       if (!res.ok) {
-        showBarcodeStatus(data.error || 'Lookup failed.', 'error');
+        showBarcodeStatus(data.error || 'Lookup failed.', 'error', true);
         return;
       }
 
@@ -681,10 +685,10 @@
           performSearch(drugName);
         }, 800);
       } else {
-        showBarcodeStatus('No drug found for this barcode. This database covers US-registered (FDA) drugs only. Non-US drugs may not be recognized. Try entering the drug name in the search bar instead.', 'error');
+        showBarcodeStatus(`Scanned code: ${code}. No drug found — this database covers US-registered (FDA) drugs only. Try entering the drug name in the search bar instead.`, 'error', true);
       }
     } catch {
-      showBarcodeStatus('Could not connect to the lookup service. Please try again.', 'error');
+      showBarcodeStatus('Could not connect to the lookup service. Please try again.', 'error', true);
     }
   }
 
