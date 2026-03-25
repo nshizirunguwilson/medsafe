@@ -9,6 +9,9 @@ const app = express();
 const PORT = process.env.PORT || 3000;
 const SERVER_ID = process.env.SERVER_ID || os.hostname();
 
+// Trust proxy (behind Nginx reverse proxy)
+app.set('trust proxy', 1);
+
 // Rate limiting
 const limiter = rateLimit({
   windowMs: 1 * 60 * 1000,
@@ -36,6 +39,21 @@ function fdaParams(extra = {}) {
     params.api_key = process.env.openFDA;
   }
   return params;
+}
+
+// Build OpenFDA URL manually to preserve literal + signs in search queries
+function fdaUrl(endpoint, params = {}) {
+  const apiKey = process.env.openFDA ? `api_key=${process.env.openFDA}&` : '';
+  const parts = [];
+  for (const [key, value] of Object.entries(params)) {
+    if (key === 'search') {
+      // Don't encode + signs in search — OpenFDA needs them literal
+      parts.push(`search=${value}`);
+    } else {
+      parts.push(`${key}=${encodeURIComponent(value)}`);
+    }
+  }
+  return `${OPENFDA_BASE}${endpoint}?${apiKey}${parts.join('&')}`;
 }
 
 // ─── 1. Drug Info (RapidAPI) ───
@@ -94,17 +112,13 @@ app.get('/api/adverse-events', async (req, res) => {
 
     // If count_field is provided, return aggregated counts
     if (count_field) {
-      const response = await axios.get(`${OPENFDA_BASE}/drug/event.json`, {
-        params: fdaParams({ search, count: count_field }),
-        timeout: 10000
-      });
+      const url = fdaUrl('/drug/event.json', { search, count: count_field });
+      const response = await axios.get(url, { timeout: 10000 });
       return res.json({ counts: response.data.results || [] });
     }
 
-    const response = await axios.get(`${OPENFDA_BASE}/drug/event.json`, {
-      params: fdaParams({ search, limit: Math.min(Number(limit), 100), skip: Number(skip) }),
-      timeout: 10000
-    });
+    const url = fdaUrl('/drug/event.json', { search, limit: Math.min(Number(limit), 100), skip: Number(skip) });
+    const response = await axios.get(url, { timeout: 10000 });
 
     res.json({
       results: response.data.results || [],
@@ -131,10 +145,8 @@ app.get('/api/drug-labels', async (req, res) => {
 
   try {
     const search = `openfda.brand_name:"${query.trim()}"+openfda.generic_name:"${query.trim()}"`;
-    const response = await axios.get(`${OPENFDA_BASE}/drug/label.json`, {
-      params: fdaParams({ search, limit: Math.min(Number(limit), 25) }),
-      timeout: 10000
-    });
+    const url = fdaUrl('/drug/label.json', { search, limit: Math.min(Number(limit), 25) });
+    const response = await axios.get(url, { timeout: 10000 });
 
     res.json({
       results: response.data.results || [],
@@ -170,10 +182,8 @@ app.get('/api/recalls', async (req, res) => {
     }
 
     const search = searchParts.join('+AND+');
-    const response = await axios.get(`${OPENFDA_BASE}/drug/enforcement.json`, {
-      params: fdaParams({ search, limit: Math.min(Number(limit), 100), sort: 'recall_initiation_date:desc' }),
-      timeout: 10000
-    });
+    const url = fdaUrl('/drug/enforcement.json', { search, limit: Math.min(Number(limit), 100), sort: 'recall_initiation_date:desc' });
+    const response = await axios.get(url, { timeout: 10000 });
 
     res.json({
       results: response.data.results || [],
