@@ -573,23 +573,46 @@
 
   function startScanner() {
     if (html5QrCode) return;
-    html5QrCode = new Html5Qrcode('barcodeScanReader');
-    html5QrCode.start(
-      { facingMode: 'environment' },
-      { fps: 10, qrbox: { width: 280, height: 120 }, formatsToSupport: [
+
+    // Check if HTTPS or localhost (camera requires secure context)
+    if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
+      showBarcodeStatus('Camera scanning requires HTTPS. Please use the live site or enter the barcode manually.', 'error');
+      return;
+    }
+
+    html5QrCode = new Html5Qrcode('barcodeScanReader', {
+      formatsToSupport: [
         Html5QrcodeSupportedFormats.UPC_A,
         Html5QrcodeSupportedFormats.UPC_E,
         Html5QrcodeSupportedFormats.EAN_13,
         Html5QrcodeSupportedFormats.EAN_8,
-        Html5QrcodeSupportedFormats.CODE_128
-      ]},
+        Html5QrcodeSupportedFormats.CODE_128,
+        Html5QrcodeSupportedFormats.CODE_39
+      ]
+    });
+
+    // Responsive scan box size
+    const readerWidth = $('#barcodeScanReader').offsetWidth || 300;
+    const qrboxWidth = Math.min(readerWidth - 40, 280);
+    const qrboxHeight = Math.min(Math.floor(qrboxWidth * 0.4), 120);
+
+    html5QrCode.start(
+      { facingMode: 'environment' },
+      { fps: 15, qrbox: { width: qrboxWidth, height: qrboxHeight }, aspectRatio: 1.0 },
       (decodedText) => {
         stopScanner();
         lookupBarcode(decodedText);
       },
-      () => {} // ignore scan failures
-    ).catch(() => {
-      showBarcodeStatus('Camera access denied or unavailable. Use the manual entry tab instead.', 'error');
+      () => {}
+    ).catch((err) => {
+      const msg = String(err);
+      if (msg.includes('NotAllowedError') || msg.includes('Permission')) {
+        showBarcodeStatus('Camera permission denied. Please allow camera access in your browser settings, or use manual entry.', 'error');
+      } else if (msg.includes('NotFoundError') || msg.includes('no camera')) {
+        showBarcodeStatus('No camera found on this device. Use the manual entry tab instead.', 'error');
+      } else {
+        showBarcodeStatus('Could not start camera. Use the manual entry tab instead.', 'error');
+      }
     });
   }
 
