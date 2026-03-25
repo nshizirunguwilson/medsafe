@@ -184,5 +184,312 @@
               <span class="drug-detail-label">Dosage Form</span>
               <span class="drug-detail-value">${dosageForm}</span>
             </div>
+            <div class="drug-detail">
+              <span class="drug-detail-label">Product Type</span>
+              <span class="drug-detail-value">${productType}</span>
+            </div>
+            <div class="drug-detail">
+              <span class="drug-detail-label">Packaging</span>
+              <span class="drug-detail-value">${truncate(packaging, 150)}</span>
+            </div>
+          </div>
+        </div>`;
+    });
+
+    html += '</div>';
+    drugInfoContent.innerHTML = html;
+  }
+
+  // ─── 2. Adverse Events (OpenFDA) ───
+  async function fetchAdverseEvents(query, page = 0) {
+    showLoader(adverseEventsContent);
+    aePagination.hidden = true;
+    aeCurrentPage = page;
+
+    const serious = $('#severityFilter').value;
+    const dateStart = $('#dateStart').value;
+    const dateEnd = $('#dateEnd').value;
+
+    try {
+      // Fetch both the events list and the top reactions count in parallel
+      const [eventsRes, countsRes] = await Promise.all([
+        fetch(`/api/adverse-events?query=${encodeURIComponent(query)}&serious=${serious}&date_start=${dateStart}&date_end=${dateEnd}&limit=${AE_PER_PAGE}&skip=${page * AE_PER_PAGE}`),
+        fetch(`/api/adverse-events?query=${encodeURIComponent(query)}&serious=${serious}&date_start=${dateStart}&date_end=${dateEnd}&count_field=patient.reaction.reactionmeddrapt.exact`)
+      ]);
+
+      const eventsData = await eventsRes.json();
+      const countsData = await countsRes.json();
+
+      if (!eventsRes.ok) {
+        showError(adverseEventsContent, eventsData.error || 'Failed to fetch adverse events.');
+        return;
+      }
+
+      if ((!eventsData.results || eventsData.results.length === 0) && (!countsData.counts || countsData.counts.length === 0)) {
+        showEmpty(adverseEventsContent, eventsData.message || 'No adverse events found for this drug.');
+        return;
+      }
+
+      aeTotalResults = eventsData.meta?.results?.total || 0;
+      renderAdverseEvents(eventsData.results || [], countsData.counts || []);
+      renderAePagination();
+    } catch (err) {
+      showError(adverseEventsContent, 'Could not connect to the adverse events service. Please try again.');
+    }
+  }
+
+  function renderAdverseEvents(events, counts) {
+    let html = '';
+
+    // Top reactions bar chart
+    if (counts.length > 0) {
+      const topCounts = counts.slice(0, 8);
+      const maxCount = topCounts[0]?.count || 1;
+
+      html += `
+        <div class="ae-summary">
+          <div class="ae-summary-title">Top Reported Reactions</div>
+          <div class="ae-bar-list">
+            ${topCounts.map(c => `
+              <div class="ae-bar-row">
+                <span class="ae-bar-label" title="${escapeHtml(c.term)}">${escapeHtml(c.term)}</span>
+                <div class="ae-bar-track">
+                  <div class="ae-bar-fill" style="width: ${(c.count / maxCount * 100).toFixed(1)}%"></div>
+                </div>
+                <span class="ae-bar-count">${c.count.toLocaleString()}</span>
+              </div>
+            `).join('')}
+          </div>
+        </div>`;
+    }
+
+    if (events.length > 0) {
+      // Sort events client-side based on selected sort
+      const sortVal = $('#aeSort').value;
+      const sorted = [...events].sort((a, b) => {
+        if (sortVal === 'date-asc') return (a.receivedate || '').localeCompare(b.receivedate || '');
+        if (sortVal === 'serious-first') return (b.serious || 0) - (a.serious || 0);
+        return (b.receivedate || '').localeCompare(a.receivedate || ''); // date-desc default
+      });
+
+      html += `
+        <div class="ae-table-wrap">
+          <table class="ae-table">
+            <thead>
+              <tr>
+                <th>Date</th>
+                <th>Severity</th>
+                <th>Reactions</th>
+                <th>Outcome</th>
+                <th>Country</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${sorted.map(ev => {
+                const reactions = (ev.patient?.reaction || []).map(r => r.reactionmeddrapt).filter(Boolean);
+                const serious = ev.serious === 1 || ev.serious === '1';
+                const outcomes = [];
+                if (ev.seriousnessdeath === '1') outcomes.push('Death');
+                if (ev.seriousnesshospitalization === '1') outcomes.push('Hospitalization');
+                if (ev.seriousnesslifethreatening === '1') outcomes.push('Life-threatening');
+                if (ev.seriousnessdisabling === '1') outcomes.push('Disability');
+                if (ev.seriousnesscongenitalanomali === '1') outcomes.push('Congenital anomaly');
+                if (ev.seriousnessother === '1') outcomes.push('Other serious');
+                const outcomeStr = outcomes.length > 0 ? outcomes.join(', ') : (serious ? 'Serious' : 'Non-serious');
+
+                return `
+                  <tr>
+                    <td>${formatDate(ev.receivedate)}</td>
+                    <td><span class="badge ${serious ? 'badge-serious' : 'badge-non-serious'}">${serious ? 'Serious' : 'Non-serious'}</span></td>
+                    <td>
+                      <div class="reactions-list">
+                        ${reactions.slice(0, 5).map(r => `<span class="reaction-tag">${escapeHtml(r)}</span>`).join('')}
+                        ${reactions.length > 5 ? `<span class="reaction-tag">+${reactions.length - 5} more</span>` : ''}
+                      </div>
+                    </td>
+                    <td>${escapeHtml(outcomeStr)}</td>
+                    <td>${escapeHtml(ev.primarysourcecountry || '—')}</td>
+                  </tr>`;
+              }).join('')}
+            </tbody>
+          </table>
+        </div>`;
+    }
+
+    adverseEventsContent.innerHTML = html || '<div class="empty-state"><p>No individual event reports to display.</p></div>';
+  }
+
+  function renderAePagination() {
+    if (aeTotalResults <= AE_PER_PAGE) {
+      aePagination.hidden = true;
+      return;
+    }
+
+    const totalPages = Math.ceil(Math.min(aeTotalResults, 5000) / AE_PER_PAGE); // OpenFDA caps skip at ~5000
+    aePagination.hidden = false;
+    aePagination.innerHTML = `
+      <button class="pagination-btn" id="aePrev" ${aeCurrentPage === 0 ? 'disabled' : ''}>Previous</button>
+      <span class="pagination-info">Page ${aeCurrentPage + 1} of ${totalPages.toLocaleString()} (${aeTotalResults.toLocaleString()} reports)</span>
+      <button class="pagination-btn" id="aeNext" ${aeCurrentPage >= totalPages - 1 ? 'disabled' : ''}>Next</button>
+    `;
+
+    $('#aePrev')?.addEventListener('click', () => fetchAdverseEvents(currentQuery, aeCurrentPage - 1));
+    $('#aeNext')?.addEventListener('click', () => fetchAdverseEvents(currentQuery, aeCurrentPage + 1));
+  }
+
+  // Apply filters button
+  $('#applyAeFilters').addEventListener('click', () => {
+    if (currentQuery) fetchAdverseEvents(currentQuery, 0);
+  });
+
+  // ─── 3. Drug Labels (OpenFDA) ───
+  async function fetchDrugLabels(query) {
+    showLoader(drugLabelsContent);
+    try {
+      const res = await fetch(`/api/drug-labels?query=${encodeURIComponent(query)}`);
+      const data = await res.json();
+
+      if (!res.ok) {
+        showError(drugLabelsContent, data.error || 'Failed to fetch drug labels.');
+        return;
+      }
+
+      if (!data.results || data.results.length === 0) {
+        showEmpty(drugLabelsContent, data.message || 'No drug labels found.');
+        return;
+      }
+
+      renderDrugLabels(data.results);
+    } catch (err) {
+      showError(drugLabelsContent, 'Could not connect to the drug labels service. Please try again.');
+    }
+  }
+
+  function renderDrugLabels(labels) {
+    const sections = [
+      { key: 'indications_and_usage', title: 'Indications & Usage' },
+      { key: 'dosage_and_administration', title: 'Dosage & Administration' },
+      { key: 'warnings', title: 'Warnings' },
+      { key: 'warnings_and_cautions', title: 'Warnings & Precautions' },
+      { key: 'contraindications', title: 'Contraindications' },
+      { key: 'adverse_reactions', title: 'Adverse Reactions' },
+      { key: 'drug_interactions', title: 'Drug Interactions' },
+      { key: 'overdosage', title: 'Overdosage' },
+      { key: 'mechanism_of_action', title: 'Mechanism of Action' },
+      { key: 'pregnancy', title: 'Pregnancy' }
+    ];
+
+    const chevronSvg = `<svg class="label-accordion-chevron" viewBox="0 0 16 16" fill="none"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+
+    let html = '';
+    labels.forEach(label => {
+      const name = label.openfda?.brand_name?.[0] || label.openfda?.generic_name?.[0] || 'Drug Label';
+
+      // Filter to sections that exist for this label
+      const available = sections.filter(s => label[s.key] && label[s.key].length > 0);
+
+      if (available.length === 0) return;
+
+      html += `
+        <div class="label-card">
+          <div class="label-card-header">
+            <div class="label-card-name">${escapeHtml(name)}</div>
+          </div>
+          <div class="label-sections">
+            ${available.map(s => `
+              <div class="label-accordion">
+                <button class="label-accordion-trigger" aria-expanded="false">
+                  ${escapeHtml(s.title)}
+                  ${chevronSvg}
+                </button>
+                <div class="label-accordion-body">
+                  <div class="label-accordion-inner">
+                    <div class="label-accordion-text">${label[s.key].map(t => sanitizeHtml(t)).join('<br><br>')}</div>
+                  </div>
+                </div>
+              </div>
+            `).join('')}
+          </div>
+        </div>`;
+    });
+
+    drugLabelsContent.innerHTML = html || '<div class="empty-state"><p>No label sections available.</p></div>';
+
+    // Bind accordion toggles
+    drugLabelsContent.querySelectorAll('.label-accordion-trigger').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const accordion = btn.closest('.label-accordion');
+        const isOpen = accordion.classList.contains('open');
+        accordion.classList.toggle('open');
+        btn.setAttribute('aria-expanded', !isOpen);
+      });
+    });
+  }
+
+  // ─── 4. Recalls (OpenFDA) ───
+  async function fetchRecalls(query) {
+    showLoader(recallsContent);
+    const status = $('#recallStatus').value;
+    const classification = $('#recallClass').value;
+
+    try {
+      const res = await fetch(`/api/recalls?query=${encodeURIComponent(query)}&status=${status}&classification=${classification}`);
+      const data = await res.json();
+
+      if (!res.ok) {
+        showError(recallsContent, data.error || 'Failed to fetch recalls.');
+        return;
+      }
+
+      if (!data.results || data.results.length === 0) {
+        showEmpty(recallsContent, data.message || 'No recalls found for this drug — that\'s a good sign.');
+        return;
+      }
+
+      renderRecalls(data.results);
+    } catch (err) {
+      showError(recallsContent, 'Could not connect to the recalls service. Please try again.');
+    }
+  }
+
+  function renderRecalls(recalls) {
+    let html = '<div class="recall-list">';
+
+    recalls.forEach(r => {
+      const cls = (r.classification || '').toLowerCase();
+      let badgeClass = 'badge-class-iii';
+      if (cls.includes('class i') && !cls.includes('class ii')) badgeClass = 'badge-class-i';
+      else if (cls.includes('class ii')) badgeClass = 'badge-class-ii';
+
+      const status = r.status || 'Unknown';
+      let statusBadge = 'badge-terminated';
+      if (status === 'Ongoing') statusBadge = 'badge-ongoing';
+      else if (status === 'Completed') statusBadge = 'badge-completed';
+
+      html += `
+        <div class="recall-card">
+          <div class="recall-card-top">
+            <span class="recall-card-number">${escapeHtml(r.recall_number || '—')}</span>
+            <span class="badge ${badgeClass}">${escapeHtml(r.classification || '—')}</span>
+            <span class="badge ${statusBadge}">${escapeHtml(status)}</span>
+          </div>
+          <div class="recall-card-reason">${escapeHtml(r.reason_for_recall || 'No reason provided.')}</div>
+          <div class="recall-meta">
+            <div class="recall-meta-item"><strong>Firm:</strong> ${escapeHtml(r.recalling_firm || '—')}</div>
+            <div class="recall-meta-item"><strong>Initiated:</strong> ${formatDate(r.recall_initiation_date)}</div>
+            <div class="recall-meta-item"><strong>Product:</strong> ${escapeHtml(truncate(r.product_description, 120))}</div>
+            ${r.voluntary_mandated ? `<div class="recall-meta-item"><strong>Type:</strong> ${escapeHtml(r.voluntary_mandated)}</div>` : ''}
+          </div>
+        </div>`;
+    });
+
+    html += '</div>';
+    recallsContent.innerHTML = html;
+  }
+
+  // Apply recall filters
+  $('#applyRecallFilters').addEventListener('click', () => {
+    if (currentQuery) fetchRecalls(currentQuery);
+  });
 
 })();
