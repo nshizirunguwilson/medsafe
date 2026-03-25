@@ -600,7 +600,15 @@
       { facingMode: 'environment' },
       { fps: 15, qrbox: { width: qrboxWidth, height: qrboxHeight }, aspectRatio: 1.0 },
       (decodedText) => {
-        stopScanner();
+        // Stop scanner first, then look up — use flag to prevent duplicate scans
+        if (html5QrCode._scanning === false) return;
+        html5QrCode._scanning = false;
+        html5QrCode.stop().then(() => {
+          html5QrCode.clear();
+          html5QrCode = null;
+        }).catch(() => {
+          html5QrCode = null;
+        });
         lookupBarcode(decodedText);
       },
       () => {}
@@ -618,9 +626,13 @@
 
   function stopScanner() {
     if (html5QrCode) {
-      html5QrCode.stop().catch(() => {});
-      html5QrCode.clear();
+      const scanner = html5QrCode;
       html5QrCode = null;
+      scanner.stop().then(() => {
+        scanner.clear();
+      }).catch(() => {
+        try { scanner.clear(); } catch(e) {}
+      });
     }
   }
 
