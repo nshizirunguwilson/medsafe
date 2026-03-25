@@ -194,21 +194,61 @@ app.get('/api/recalls', async (req, res) => {
 // ─── 5. Barcode Lookup (OpenFDA) ───
 app.get('/api/barcode-lookup', async (req, res) => {
   const { code } = req.query;
-  if (!code || code.trim().length < 8) {
+  if (!code || code.trim().length < 4) {
     return res.status(400).json({ error: 'Please enter a valid barcode or NDC number.' });
   }
 
   const cleaned = code.trim().replace(/[^0-9-]/g, '');
 
+  // Convert UPC-A (12 digits) or EAN-13 (13 digits) to possible NDC formats
+  function upcToNdcVariants(upc) {
+    const digits = upc.replace(/[^0-9]/g, '');
+    const variants = new Set();
+
+    function addNdcFormats(core) {
+      if (core.length === 10) {
+        // NDC formats: 4-4-2, 5-3-2, 5-4-1
+        variants.add(`${core.slice(0,5)}-${core.slice(5,8)}-${core.slice(8,10)}`);
+        variants.add(`${core.slice(0,5)}-${core.slice(5,9)}-${core.slice(9,10)}`);
+        variants.add(`${core.slice(0,4)}-${core.slice(4,8)}-${core.slice(8,10)}`);
+      } else if (core.length === 9) {
+        variants.add(`${core.slice(0,4)}-${core.slice(4,7)}-${core.slice(7,9)}`);
+        variants.add(`${core.slice(0,5)}-${core.slice(5,8)}-${core.slice(8,9)}`);
+        variants.add(`${core.slice(0,5)}-${core.slice(5,7)}-${core.slice(7,9)}`);
+      }
+    }
+
+    if (digits.length === 12) {
+      // UPC-A: digit[0] is indicator, digits[1-10] are NDC, digit[11] is check
+      addNdcFormats(digits.slice(1, 11));
+    } else if (digits.length === 13) {
+      // EAN-13: try multiple slicing strategies
+      addNdcFormats(digits.slice(3, 12)); // skip 3-char country prefix, drop check
+      addNdcFormats(digits.slice(2, 12)); // skip 2-char prefix, drop check
+    }
+
+    return [...variants];
+  }
+
   try {
-    // Try UPC search first, then NDC
+    // Build search queries: direct UPC, direct input as NDC, then UPC→NDC conversions
     const searches = [
       `openfda.upc:"${cleaned}"`,
-      `openfda.package_ndc:"${cleaned}"`,
-      `openfda.product_ndc:"${cleaned}"`
+      `openfda.product_ndc:"${cleaned}"`,
+      `openfda.package_ndc:"${cleaned}"`
     ];
 
-    for (const search of searches) {
+    // Add UPC→NDC converted variants
+    const ndcVariants = upcToNdcVariants(cleaned);
+    for (const ndc of ndcVariants) {
+      searches.push(`openfda.product_ndc:"${ndc}"`);
+      searches.push(`openfda.package_ndc:"${ndc}"`);
+    }
+
+    // Deduplicate
+    const uniqueSearches = [...new Set(searches)];
+
+    for (const search of uniqueSearches) {
       try {
         const response = await axios.get(`${OPENFDA_BASE}/drug/label.json`, {
           params: fdaParams({ search, limit: 1 }),

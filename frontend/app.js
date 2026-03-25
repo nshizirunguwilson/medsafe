@@ -561,14 +561,24 @@
   function openBarcodeModal() {
     barcodeModal.hidden = false;
     barcodeLookupStatus.hidden = true;
-    if ($('#barcodeScanPanel').classList.contains('active')) {
-      startScanner();
-    }
+    // Reset manual input
+    $('#barcodeManualInput').value = '';
+    // Always start on scan tab
+    $$('.barcode-tab').forEach(t => t.classList.remove('active'));
+    $('[data-btab="scan"]').classList.add('active');
+    $$('.barcode-panel').forEach(p => p.classList.remove('active'));
+    $('#barcodeScanPanel').classList.add('active');
+    // Small delay to let modal render before starting camera
+    setTimeout(() => startScanner(), 200);
   }
 
   function closeBarcodeModal() {
     barcodeModal.hidden = true;
     stopScanner();
+    // Fully reset scanner container
+    $('#barcodeScanReader').innerHTML = '';
+    html5QrCode = null;
+    isScanning = false;
   }
 
   function startScanner() {
