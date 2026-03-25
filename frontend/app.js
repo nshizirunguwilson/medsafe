@@ -556,11 +556,11 @@
   const barcodeModalClose = $('#barcodeModalClose');
   const barcodeLookupStatus = $('#barcodeLookupStatus');
   let html5QrCode = null;
+  let isScanning = false;
 
   function openBarcodeModal() {
     barcodeModal.hidden = false;
     barcodeLookupStatus.hidden = true;
-    // Start scanner on the scan tab if it's active
     if ($('#barcodeScanPanel').classList.contains('active')) {
       startScanner();
     }
@@ -572,13 +572,16 @@
   }
 
   function startScanner() {
-    if (html5QrCode) return;
+    if (isScanning) return;
 
-    // Check if HTTPS or localhost (camera requires secure context)
     if (location.protocol !== 'https:' && location.hostname !== 'localhost') {
       showBarcodeStatus('Camera scanning requires HTTPS. Please use the live site or enter the barcode manually.', 'error');
       return;
     }
+
+    // Reset the scanner container so it can be reused
+    const reader = $('#barcodeScanReader');
+    reader.innerHTML = '';
 
     html5QrCode = new Html5Qrcode('barcodeScanReader', {
       formatsToSupport: [
@@ -591,28 +594,32 @@
       ]
     });
 
-    // Responsive scan box size
-    const readerWidth = $('#barcodeScanReader').offsetWidth || 300;
+    const readerWidth = reader.offsetWidth || 300;
     const qrboxWidth = Math.min(readerWidth - 40, 280);
     const qrboxHeight = Math.min(Math.floor(qrboxWidth * 0.4), 120);
+
+    isScanning = true;
 
     html5QrCode.start(
       { facingMode: 'environment' },
       { fps: 15, qrbox: { width: qrboxWidth, height: qrboxHeight }, aspectRatio: 1.0 },
       (decodedText) => {
-        // Stop scanner first, then look up — use flag to prevent duplicate scans
-        if (html5QrCode._scanning === false) return;
-        html5QrCode._scanning = false;
+        if (!isScanning) return;
+        isScanning = false;
+        // Wait for stop to complete before looking up
         html5QrCode.stop().then(() => {
-          html5QrCode.clear();
+          try { html5QrCode.clear(); } catch(e) {}
           html5QrCode = null;
+          lookupBarcode(decodedText);
         }).catch(() => {
           html5QrCode = null;
+          lookupBarcode(decodedText);
         });
-        lookupBarcode(decodedText);
       },
       () => {}
     ).catch((err) => {
+      isScanning = false;
+      html5QrCode = null;
       const msg = String(err);
       if (msg.includes('NotAllowedError') || msg.includes('Permission')) {
         showBarcodeStatus('Camera permission denied. Please allow camera access in your browser settings, or use manual entry.', 'error');
@@ -625,11 +632,12 @@
   }
 
   function stopScanner() {
+    isScanning = false;
     if (html5QrCode) {
       const scanner = html5QrCode;
       html5QrCode = null;
       scanner.stop().then(() => {
-        scanner.clear();
+        try { scanner.clear(); } catch(e) {}
       }).catch(() => {
         try { scanner.clear(); } catch(e) {}
       });
