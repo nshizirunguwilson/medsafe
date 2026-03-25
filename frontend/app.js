@@ -367,7 +367,8 @@
       return;
     }
 
-    const totalPages = Math.ceil(Math.min(aeTotalResults, 5000) / AE_PER_PAGE); // OpenFDA caps skip at ~5000
+    const maxAccessible = 25000 + AE_PER_PAGE; // OpenFDA caps skip at 25000
+    const totalPages = Math.ceil(Math.min(aeTotalResults, maxAccessible) / AE_PER_PAGE);
     aePagination.hidden = false;
     aePagination.innerHTML = `
       <button class="pagination-btn" id="aePrev" ${aeCurrentPage === 0 ? 'disabled' : ''}>Previous</button>
