@@ -96,10 +96,9 @@
   }
 
   // ─── Search ───
-  searchForm.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const query = searchInput.value.trim();
+  let searchResults = { drugInfo: null, adverseEvents: null, drugLabels: null, recalls: null };
 
+  function performSearch(query) {
     if (query.length < 2) {
       searchError.textContent = 'Please enter at least 2 characters.';
       searchError.hidden = false;
@@ -110,6 +109,7 @@
     currentQuery = query;
     resultsQuery.textContent = query;
     resultsSection.hidden = false;
+    searchResults = { drugInfo: null, adverseEvents: null, drugLabels: null, recalls: null };
 
     // Smooth scroll to results
     resultsSection.scrollIntoView({ behavior: 'smooth', block: 'start' });
@@ -119,6 +119,32 @@
     fetchAdverseEvents(query);
     fetchDrugLabels(query);
     fetchRecalls(query);
+  }
+
+  function checkAllEmpty() {
+    // Only check once all 4 have responded
+    if (Object.values(searchResults).some(v => v === null)) return;
+    if (Object.values(searchResults).every(v => v === 'empty')) {
+      // Show a banner above the tabs
+      const existing = $('.no-results-banner');
+      if (existing) existing.remove();
+      const banner = document.createElement('div');
+      banner.className = 'no-results-banner';
+      banner.innerHTML = `
+        <svg viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="7.5" stroke="currentColor" stroke-width="1.5"/><path d="M10 6.5v4M10 13v.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/></svg>
+        <span>No results found for <strong>${escapeHtml(currentQuery)}</strong>. This database covers US-registered drugs — try searching by a brand name like Advil, Lipitor, or Metformin.</span>
+      `;
+      $('.results-header').after(banner);
+    } else {
+      const existing = $('.no-results-banner');
+      if (existing) existing.remove();
+    }
+  }
+
+  searchForm.addEventListener('submit', (e) => {
+    e.preventDefault();
+    const query = searchInput.value.trim();
+    performSearch(query);
   });
 
   // ─── 1. Drug Info (RapidAPI) ───
@@ -135,12 +161,18 @@
 
       if (!data.results || data.results.length === 0) {
         showEmpty(drugInfoContent, data.message || 'No drug information found.');
+        searchResults.drugInfo = 'empty';
+        checkAllEmpty();
         return;
       }
 
+      searchResults.drugInfo = 'found';
+      checkAllEmpty();
       renderDrugInfo(data.results);
     } catch (err) {
       showError(drugInfoContent, 'Could not connect to the drug information service. Please try again.');
+      searchResults.drugInfo = 'empty';
+      checkAllEmpty();
     }
   }
 
@@ -227,14 +259,20 @@
 
       if ((!eventsData.results || eventsData.results.length === 0) && (!countsData.counts || countsData.counts.length === 0)) {
         showEmpty(adverseEventsContent, eventsData.message || 'No adverse events found for this drug.');
+        searchResults.adverseEvents = 'empty';
+        checkAllEmpty();
         return;
       }
 
+      searchResults.adverseEvents = 'found';
+      checkAllEmpty();
       aeTotalResults = eventsData.meta?.results?.total || 0;
       renderAdverseEvents(eventsData.results || [], countsData.counts || []);
       renderAePagination();
     } catch (err) {
       showError(adverseEventsContent, 'Could not connect to the adverse events service. Please try again.');
+      searchResults.adverseEvents = 'empty';
+      checkAllEmpty();
     }
   }
 
@@ -356,12 +394,18 @@
 
       if (!data.results || data.results.length === 0) {
         showEmpty(drugLabelsContent, data.message || 'No drug labels found.');
+        searchResults.drugLabels = 'empty';
+        checkAllEmpty();
         return;
       }
 
+      searchResults.drugLabels = 'found';
+      checkAllEmpty();
       renderDrugLabels(data.results);
     } catch (err) {
       showError(drugLabelsContent, 'Could not connect to the drug labels service. Please try again.');
+      searchResults.drugLabels = 'empty';
+      checkAllEmpty();
     }
   }
 
@@ -443,12 +487,18 @@
 
       if (!data.results || data.results.length === 0) {
         showEmpty(recallsContent, data.message || 'No recalls found for this drug — that\'s a good sign.');
+        searchResults.recalls = 'empty';
+        checkAllEmpty();
         return;
       }
 
+      searchResults.recalls = 'found';
+      checkAllEmpty();
       renderRecalls(data.results);
     } catch (err) {
       showError(recallsContent, 'Could not connect to the recalls service. Please try again.');
+      searchResults.recalls = 'empty';
+      checkAllEmpty();
     }
   }
 
@@ -566,10 +616,10 @@
         setTimeout(() => {
           closeBarcodeModal();
           searchInput.value = data.drug_name;
-          searchForm.dispatchEvent(new Event('submit'));
+          performSearch(data.drug_name);
         }, 800);
       } else {
-        showBarcodeStatus(data.message || 'No drug found for this barcode.', 'error');
+        showBarcodeStatus('No drug found for this barcode. This database covers US-registered (FDA) drugs only. Non-US drugs may not be recognized. Try entering the drug name in the search bar instead.', 'error');
       }
     } catch {
       showBarcodeStatus('Could not connect to the lookup service. Please try again.', 'error');
