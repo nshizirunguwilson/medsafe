@@ -1,0 +1,23 @@
+{
+  "name": "MedSafe — Drug Safety Intelligence",
+  "short_name": "MedSafe",
+  "description": "Search drug safety data from OpenFDA and Drug Info APIs",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#fcfcfd",
+  "theme_color": "#1e4a9e",
+  "icons": [
+    {
+      "src": "/icons/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icons/icon-maskable.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "maskable"
+    }
+  ]
+}
