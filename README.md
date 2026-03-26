@@ -131,22 +131,20 @@ curl http://localhost:3000/api/health
 
 You should see: `{"status":"ok","server":"web01","timestamp":"..."}`
 
-### Step 3: Configure Nginx on Web01 and Web02
+### Step 3: Configure Nginx Reverse Proxy on Web01 and Web02
 
-On each web server, configure Nginx as a reverse proxy to pass traffic to the Node.js app:
+On each web server, create an Nginx site config to reverse proxy traffic to the Node.js app:
 
 ```bash
-sudo nano /etc/nginx/sites-available/default
+sudo nano /etc/nginx/sites-available/medsafe
 ```
 
-Replace the contents with:
+Add the following:
 
 ```nginx
 server {
-    listen 80 default_server;
-    listen [::]:80 default_server;
-
-    server_name _;
+    listen 80;
+    server_name medsafe.wilsonn.tech;
 
     location / {
         proxy_pass http://127.0.0.1:3000;
@@ -162,36 +160,54 @@ server {
 }
 ```
 
-Test and reload Nginx:
+Enable the site and reload Nginx:
 
 ```bash
+sudo ln -s /etc/nginx/sites-available/medsafe /etc/nginx/sites-enabled/
 sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-Verify by visiting `http://34.239.0.61` and `http://3.87.217.227` in your browser.
+### Step 4: Configure Firewall (UFW) on Web01 and Web02
 
-### Step 4: Configure the Load Balancer (Lb01)
-
-SSH into the load balancer server and configure Nginx for round-robin load balancing:
+Set up UFW to only allow SSH and HTTP/HTTPS traffic, blocking direct access to port 3000:
 
 ```bash
-sudo nano /etc/nginx/sites-available/default
+sudo ufw allow ssh
+sudo ufw allow 'Nginx HTTP'
+sudo ufw allow 'Nginx HTTPS'
+sudo ufw enable
+sudo ufw status
 ```
 
-Replace the contents with:
+This ensures the Node.js app is only accessible through the Nginx reverse proxy.
+
+### Step 5: Configure the Load Balancer (Lb01)
+
+SSH into the load balancer server and install Nginx:
+
+```bash
+sudo apt-get update
+sudo apt-get install -y nginx
+```
+
+Create the load balancer config:
+
+```bash
+sudo nano /etc/nginx/sites-available/medsafe
+```
+
+Add the following upstream configuration for round-robin load balancing:
 
 ```nginx
 upstream medsafe_backend {
-    server 34.239.0.61;
-    server 3.87.217.227;
+    server 34.239.0.61:80;
+    server 3.87.217.227:80;
 }
 
 server {
-    listen 80 default_server;
-    listen [::]:80 default_server;
-
-    server_name _;
+    listen 80;
+    server_name medsafe.wilsonn.tech;
 
     location / {
         proxy_pass http://medsafe_backend;
@@ -207,20 +223,40 @@ server {
 }
 ```
 
-Test and reload Nginx:
+Enable the site and reload:
 
 ```bash
+sudo ln -s /etc/nginx/sites-available/medsafe /etc/nginx/sites-enabled/
 sudo nginx -t
 sudo systemctl reload nginx
 ```
 
-### Step 5: Verify Load Balancing
+### Step 6: Configure SSL with Let's Encrypt (Lb01)
+
+Install Certbot and obtain an SSL certificate for the domain:
+
+```bash
+sudo apt-get install -y certbot python3-certbot-nginx
+sudo certbot --nginx -d medsafe.wilsonn.tech --non-interactive --agree-tos --email your-email@example.com --redirect
+```
+
+Certbot automatically configures Nginx to serve HTTPS and redirect HTTP traffic to HTTPS.
+
+### Step 7: Configure Firewall (UFW) on Lb01
+
+```bash
+sudo ufw allow ssh
+sudo ufw allow 'Nginx Full'
+sudo ufw enable
+```
+
+### Step 8: Verify Load Balancing
 
 Test that the load balancer distributes requests between both servers. The `server` field in each response identifies which backend handled the request:
 
 ```bash
 # Run multiple requests — you should see alternating server IDs (web01 / web02)
-for i in {1..6}; do curl -s http://3.86.83.174/api/health; echo; done
+for i in {1..6}; do curl -s https://medsafe.wilsonn.tech/api/health; echo; done
 ```
 
 Expected output (round-robin):
@@ -228,10 +264,12 @@ Expected output (round-robin):
 {"status":"ok","server":"web01","timestamp":"..."}
 {"status":"ok","server":"web02","timestamp":"..."}
 {"status":"ok","server":"web01","timestamp":"..."}
-...
+{"status":"ok","server":"web02","timestamp":"..."}
+{"status":"ok","server":"web01","timestamp":"..."}
+{"status":"ok","server":"web02","timestamp":"..."}
 ```
 
-You can also access the application through the load balancer at: `http://3.86.83.174`
+The application is live at: **https://medsafe.wilsonn.tech**
 
 ## Error Handling
 
