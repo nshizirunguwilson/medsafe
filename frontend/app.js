@@ -156,6 +156,8 @@
 
       if (!res.ok) {
         showError(drugInfoContent, data.error || 'Failed to fetch drug information.');
+        searchResults.drugInfo = 'empty';
+        checkAllEmpty();
         return;
       }
 
@@ -254,6 +256,8 @@
 
       if (!eventsRes.ok) {
         showError(adverseEventsContent, eventsData.error || 'Failed to fetch adverse events.');
+        searchResults.adverseEvents = 'empty';
+        checkAllEmpty();
         return;
       }
 
@@ -389,6 +393,8 @@
 
       if (!res.ok) {
         showError(drugLabelsContent, data.error || 'Failed to fetch drug labels.');
+        searchResults.drugLabels = 'empty';
+        checkAllEmpty();
         return;
       }
 
@@ -482,6 +488,8 @@
 
       if (!res.ok) {
         showError(recallsContent, data.error || 'Failed to fetch recalls.');
+        searchResults.recalls = 'empty';
+        checkAllEmpty();
         return;
       }
 
@@ -613,10 +621,11 @@
 
       if (data.drug_name) {
         showBarcodeStatus(`Found: ${data.drug_name}${data.manufacturer ? ' by ' + data.manufacturer : ''}. Searching...`, 'success');
+        const drugName = data.drug_name;
         setTimeout(() => {
-          closeBarcodeModal();
-          searchInput.value = data.drug_name;
-          performSearch(data.drug_name);
+          try { closeBarcodeModal(); } catch (e) { barcodeModal.hidden = true; }
+          searchInput.value = drugName;
+          performSearch(drugName);
         }, 800);
       } else {
         showBarcodeStatus('No drug found for this barcode. This database covers US-registered (FDA) drugs only. Non-US drugs may not be recognized. Try entering the drug name in the search bar instead.', 'error');
