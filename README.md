@@ -1,0 +1,280 @@
+# MedSafe | Drug Safety Intelligence
+
+MedSafe is a web application that lets users search for any drug and instantly view safety-critical information aggregated from multiple authoritative sources. It combines drug product details, adverse event reports, FDA labeling, and recall data into a single, easy-to-navigate interface.
+
+## Features
+
+- **Drug Information** — Brand name, generic name, active ingredients, manufacturer, route, dosage form, and packaging details
+- **Adverse Event Reports** — Browse FDA adverse event reports with filtering by severity and date range, sorting by date or seriousness, and a visual bar chart of top reported reactions
+- **Drug Labels** — Expandable accordion sections for indications, dosage, warnings, contraindications, adverse reactions, drug interactions, and more
+- **Recalls & Enforcement** — Active and historical FDA recalls filterable by status (Ongoing/Completed/Terminated) and classification (Class I/II/III)
+- **Pagination** — Navigate through large sets of adverse event reports
+- **Responsive Design** — Works on desktop, tablet, and mobile
+
+## APIs Used
+
+### 1. OpenFDA
+
+- **Provider:** U.S. Food and Drug Administration
+- **Documentation:** [https://open.fda.gov/apis/](https://open.fda.gov/apis/)
+- **Endpoints used:**
+  - `/drug/event.json` — Adverse event reports (FAERS database)
+  - `/drug/label.json` — Drug labeling (SPL format)
+  - `/drug/enforcement.json` — Recall and enforcement data
+- **What it provides:** Drug adverse events, drug labels, recalls, enforcement actions
+
+### 2. Drug Info and Price History (RapidAPI)
+
+- **Provider:** rnelsomain (via RapidAPI marketplace)
+- **Documentation:** [https://rapidapi.com/rnelsomain/api/drug-info-and-price-history](https://rapidapi.com/rnelsomain/api/drug-info-and-price-history)
+- **Endpoint used:** `/1/druginfo` — Drug product details
+- **What it provides:** Drug details, generic names, active ingredients, manufacturer info, packaging
+
+## Tech Stack
+
+- **Backend:** Node.js, Express
+- **Frontend:** Vanilla HTML, CSS, JavaScript
+- **Font:** [Outfit](https://fonts.google.com/specimen/Outfit) (Google Fonts)
+- **Process Manager:** PM2 (for deployment)
+- **Load Balancer:** Nginx
+
+## Prerequisites
+
+- Node.js 18+ and npm
+- API keys for OpenFDA and RapidAPI (Drug Info and Price History)
+
+## Running Locally
+
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/<your-username>/medsafe.git
+   cd medsafe
+   ```
+
+2. **Install dependencies:**
+   ```bash
+   cd backend
+   npm install
+   ```
+
+3. **Create a `.env` file** inside `backend/` (see `backend/.env.example`):
+   ```
+   openFDA=your_openfda_api_key
+   RAPIDAPI_KeyDrugInfoAndPriceHistory=your_rapidapi_key
+   PORT=3000
+   ```
+
+4. **Start the application:**
+   ```bash
+   npm start
+   ```
+
+5. **Open your browser** and navigate to `http://localhost:3000`
+
+## Deployment to Web Servers
+
+The application is deployed on two web servers behind an Nginx load balancer:
+
+| Server | IP Address | Role |
+|--------|-----------|------|
+| Web01 | 34.239.0.61 | Application server |
+| Web02 | 3.87.217.227 | Application server |
+| Lb01 | 3.86.83.174 | Nginx load balancer |
+
+### Step 1: Install Node.js and PM2 on Web01 and Web02
+
+SSH into each web server and run:
+
+```bash
+# Install Node.js 18.x
+curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
+sudo apt-get install -y nodejs
+
+# Install PM2 globally
+sudo npm install -g pm2
+```
+
+### Step 2: Deploy the Application on Web01 and Web02
+
+On each web server:
+
+```bash
+# Clone the repository
+cd /home/$USER
+git clone https://github.com/<your-username>/medsafe.git
+cd medsafe/backend
+
+# Install dependencies
+npm install
+
+# Create the .env file with API keys (use the correct SERVER_ID for each server)
+cat > .env << 'EOF'
+openFDA=your_openfda_api_key
+RAPIDAPI_KeyDrugInfoAndPriceHistory=your_rapidapi_key
+PORT=3000
+SERVER_ID=web01
+EOF
+
+# On Web02, set SERVER_ID=web02 instead
+
+# Start the application with PM2
+pm2 start server.js --name medsafe
+pm2 save
+pm2 startup
+```
+
+Verify the application is running:
+
+```bash
+curl http://localhost:3000/api/health
+```
+
+You should see: `{"status":"ok","server":"web01","timestamp":"..."}`
+
+### Step 3: Configure Nginx on Web01 and Web02
+
+On each web server, configure Nginx as a reverse proxy to pass traffic to the Node.js app:
+
+```bash
+sudo nano /etc/nginx/sites-available/default
+```
+
+Replace the contents with:
+
+```nginx
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+
+    server_name _;
+
+    location / {
+        proxy_pass http://127.0.0.1:3000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+```
+
+Test and reload Nginx:
+
+```bash
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+Verify by visiting `http://34.239.0.61` and `http://3.87.217.227` in your browser.
+
+### Step 4: Configure the Load Balancer (Lb01)
+
+SSH into the load balancer server and configure Nginx for round-robin load balancing:
+
+```bash
+sudo nano /etc/nginx/sites-available/default
+```
+
+Replace the contents with:
+
+```nginx
+upstream medsafe_backend {
+    server 34.239.0.61;
+    server 3.87.217.227;
+}
+
+server {
+    listen 80 default_server;
+    listen [::]:80 default_server;
+
+    server_name _;
+
+    location / {
+        proxy_pass http://medsafe_backend;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+```
+
+Test and reload Nginx:
+
+```bash
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+### Step 5: Verify Load Balancing
+
+Test that the load balancer distributes requests between both servers. The `server` field in each response identifies which backend handled the request:
+
+```bash
+# Run multiple requests — you should see alternating server IDs (web01 / web02)
+for i in {1..6}; do curl -s http://3.86.83.174/api/health; echo; done
+```
+
+Expected output (round-robin):
+```
+{"status":"ok","server":"web01","timestamp":"..."}
+{"status":"ok","server":"web02","timestamp":"..."}
+{"status":"ok","server":"web01","timestamp":"..."}
+...
+```
+
+You can also access the application through the load balancer at: `http://3.86.83.174`
+
+## Error Handling
+
+- **Loading states:** Animated dot loader displayed during API calls
+- **Empty states:** Friendly messages when no results are found
+- **API failures:** Graceful fallback — if one API is down, the other tabs still work independently
+- **Rate limiting:** Server-side rate limiting (60 requests/minute) with clear error messages
+- **Input validation:** Minimum 2-character search query requirement
+
+## Project Structure
+
+```
+medsafe/
+├── backend/
+│   ├── server.js        # Express server with API proxy routes
+│   ├── package.json     # Dependencies and scripts
+│   ├── package-lock.json
+│   ├── .env             # API keys (not committed)
+│   └── .env.example     # Template for environment variables
+├── frontend/
+│   ├── index.html       # Single-page application
+│   ├── styles.css       # All styles
+│   └── app.js           # Client-side JavaScript
+├── .gitignore           # Excludes node_modules, .env
+└── README.md            # This file
+```
+
+## Challenges & Solutions
+
+1. **OpenFDA search syntax** — The OpenFDA API uses a unique search syntax with `+AND+` operators and date formatting as `YYYYMMDD`. I had to carefully parse and transform user-friendly date inputs into the required format.
+
+2. **Handling multiple API sources** — Each tab fetches data independently, so if one API is down or rate-limited, the others still work. All API calls fire in parallel on search for faster results.
+
+3. **Adverse event data volume** — OpenFDA can return thousands of results. I implemented server-side pagination (capped at 5000 by OpenFDA's skip limit) and client-side sorting to keep the interface responsive.
+
+4. **Secure API key handling** — API keys are stored in `.env` and never exposed to the frontend. The Express server acts as a proxy, making all external API calls server-side.
+
+## Credits
+
+- **OpenFDA** — U.S. Food and Drug Administration ([open.fda.gov](https://open.fda.gov/))
+- **Drug Info and Price History API** — rnelsomain via [RapidAPI](https://rapidapi.com/rnelsomain/api/drug-info-and-price-history)
+- **Outfit Font** — Rodrigo Fuenzalida via [Google Fonts](https://fonts.google.com/specimen/Outfit)
+
+## License
+
+This project was created as an academic assignment. All APIs are used in accordance with their respective terms of service.
