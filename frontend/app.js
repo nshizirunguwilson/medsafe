@@ -492,4 +492,128 @@
     if (currentQuery) fetchRecalls(currentQuery);
   });
 
+  // ─── Barcode Scanner ───
+  const barcodeBtn = $('#barcodeBtn');
+  const barcodeModal = $('#barcodeModal');
+  const barcodeModalClose = $('#barcodeModalClose');
+  const barcodeLookupStatus = $('#barcodeLookupStatus');
+  let html5QrCode = null;
+
+  function openBarcodeModal() {
+    barcodeModal.hidden = false;
+    barcodeLookupStatus.hidden = true;
+    // Start scanner on the scan tab if it's active
+    if ($('#barcodeScanPanel').classList.contains('active')) {
+      startScanner();
+    }
+  }
+
+  function closeBarcodeModal() {
+    barcodeModal.hidden = true;
+    stopScanner();
+  }
+
+  function startScanner() {
+    if (html5QrCode) return;
+    html5QrCode = new Html5Qrcode('barcodeScanReader');
+    html5QrCode.start(
+      { facingMode: 'environment' },
+      { fps: 10, qrbox: { width: 280, height: 120 }, formatsToSupport: [
+        Html5QrcodeSupportedFormats.UPC_A,
+        Html5QrcodeSupportedFormats.UPC_E,
+        Html5QrcodeSupportedFormats.EAN_13,
+        Html5QrcodeSupportedFormats.EAN_8,
+        Html5QrcodeSupportedFormats.CODE_128
+      ]},
+      (decodedText) => {
+        stopScanner();
+        lookupBarcode(decodedText);
+      },
+      () => {} // ignore scan failures
+    ).catch(() => {
+      showBarcodeStatus('Camera access denied or unavailable. Use the manual entry tab instead.', 'error');
+    });
+  }
+
+  function stopScanner() {
+    if (html5QrCode) {
+      html5QrCode.stop().catch(() => {});
+      html5QrCode.clear();
+      html5QrCode = null;
+    }
+  }
+
+  function showBarcodeStatus(msg, type) {
+    barcodeLookupStatus.hidden = false;
+    barcodeLookupStatus.textContent = msg;
+    barcodeLookupStatus.className = 'barcode-status ' + type;
+  }
+
+  async function lookupBarcode(code) {
+    showBarcodeStatus('Looking up barcode...', 'loading');
+
+    try {
+      const res = await fetch(`/api/barcode-lookup?code=${encodeURIComponent(code)}`);
+      const data = await res.json();
+
+      if (!res.ok) {
+        showBarcodeStatus(data.error || 'Lookup failed.', 'error');
+        return;
+      }
+
+      if (data.drug_name) {
+        showBarcodeStatus(`Found: ${data.drug_name}${data.manufacturer ? ' by ' + data.manufacturer : ''}. Searching...`, 'success');
+        setTimeout(() => {
+          closeBarcodeModal();
+          searchInput.value = data.drug_name;
+          searchForm.dispatchEvent(new Event('submit'));
+        }, 800);
+      } else {
+        showBarcodeStatus(data.message || 'No drug found for this barcode.', 'error');
+      }
+    } catch {
+      showBarcodeStatus('Could not connect to the lookup service. Please try again.', 'error');
+    }
+  }
+
+  barcodeBtn.addEventListener('click', openBarcodeModal);
+  barcodeModalClose.addEventListener('click', closeBarcodeModal);
+  barcodeModal.addEventListener('click', (e) => {
+    if (e.target === barcodeModal) closeBarcodeModal();
+  });
+
+  // Barcode tab switching
+  $$('.barcode-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      $$('.barcode-tab').forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+      $$('.barcode-panel').forEach(p => p.classList.remove('active'));
+      const panel = tab.dataset.btab === 'scan' ? '#barcodeScanPanel' : '#barcodeManualPanel';
+      $(panel).classList.add('active');
+
+      if (tab.dataset.btab === 'scan') {
+        startScanner();
+      } else {
+        stopScanner();
+      }
+    });
+  });
+
+  // Manual barcode lookup
+  $('#barcodeManualLookup').addEventListener('click', () => {
+    const code = $('#barcodeManualInput').value.trim();
+    if (code.length < 8) {
+      showBarcodeStatus('Please enter at least 8 digits.', 'error');
+      return;
+    }
+    lookupBarcode(code);
+  });
+
+  $('#barcodeManualInput').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      $('#barcodeManualLookup').click();
+    }
+  });
+
 })();

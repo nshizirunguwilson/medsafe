@@ -8,6 +8,7 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/styles.css">
+  <script src="https://unpkg.com/html5-qrcode@2.3.8/html5-qrcode.min.js"></script>
 </head>
 <body>
   <!-- Header -->
@@ -28,7 +29,7 @@
   <section class="search-section">
     <div class="search-wrapper">
       <h1 class="search-heading">Look up any drug</h1>
-      <p class="search-sub">Search by brand name, generic name, or active ingredient</p>
+      <p class="search-sub">Search by brand name, generic name, active ingredient, or scan a barcode</p>
       <form id="searchForm" class="search-form" autocomplete="off">
         <div class="search-input-wrap">
           <svg class="search-icon" viewBox="0 0 20 20" fill="none">
@@ -43,6 +44,12 @@
             minlength="2"
             required
           >
+          <button type="button" id="barcodeBtn" class="barcode-btn" title="Scan barcode or enter NDC">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8">
+              <path d="M3 7V5a2 2 0 012-2h2M17 3h2a2 2 0 012 2v2M21 17v2a2 2 0 01-2 2h-2M7 21H5a2 2 0 01-2-2v-2"/>
+              <path d="M7 7v10M11 7v10M15 7v10M19 7v10" stroke-width="1.5"/>
+            </svg>
+          </button>
           <button type="submit" class="search-btn">Search</button>
         </div>
         <div id="searchError" class="search-error" hidden></div>
@@ -175,6 +182,36 @@
       <p class="footer-disclaimer">This tool is for educational purposes only. Always consult a healthcare professional.</p>
     </div>
   </footer>
+
+  <!-- Barcode Modal -->
+  <div id="barcodeModal" class="modal-overlay" hidden>
+    <div class="modal">
+      <div class="modal-header">
+        <h3 class="modal-title">Scan or Enter Barcode</h3>
+        <button id="barcodeModalClose" class="modal-close" aria-label="Close">
+          <svg viewBox="0 0 20 20" fill="none"><path d="M5 5l10 10M15 5L5 15" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="barcode-tabs">
+          <button class="barcode-tab active" data-btab="scan">Scan with Camera</button>
+          <button class="barcode-tab" data-btab="manual">Enter Manually</button>
+        </div>
+        <div id="barcodeScanPanel" class="barcode-panel active">
+          <div id="barcodeScanReader"></div>
+          <p class="barcode-hint">Point your camera at the barcode on the drug packaging</p>
+        </div>
+        <div id="barcodeManualPanel" class="barcode-panel">
+          <div class="barcode-manual-form">
+            <input type="text" id="barcodeManualInput" class="barcode-manual-input" placeholder="Enter UPC or NDC number (e.g. 300450523013)" maxlength="14">
+            <button id="barcodeManualLookup" class="search-btn">Look Up</button>
+          </div>
+          <p class="barcode-hint">Enter the UPC barcode number or NDC code found on the drug package</p>
+        </div>
+        <div id="barcodeLookupStatus" class="barcode-status" hidden></div>
+      </div>
+    </div>
+  </div>
 
   <script src="/app.js"></script>
 </body>

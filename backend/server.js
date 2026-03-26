@@ -191,6 +191,56 @@ app.get('/api/recalls', async (req, res) => {
   }
 });
 
+// ─── 5. Barcode Lookup (OpenFDA) ───
+app.get('/api/barcode-lookup', async (req, res) => {
+  const { code } = req.query;
+  if (!code || code.trim().length < 8) {
+    return res.status(400).json({ error: 'Please enter a valid barcode or NDC number.' });
+  }
+
+  const cleaned = code.trim().replace(/[^0-9-]/g, '');
+
+  try {
+    // Try UPC search first, then NDC
+    const searches = [
+      `openfda.upc:"${cleaned}"`,
+      `openfda.package_ndc:"${cleaned}"`,
+      `openfda.product_ndc:"${cleaned}"`
+    ];
+
+    for (const search of searches) {
+      try {
+        const response = await axios.get(`${OPENFDA_BASE}/drug/label.json`, {
+          params: fdaParams({ search, limit: 1 }),
+          timeout: 10000
+        });
+
+        const result = response.data.results?.[0];
+        if (result) {
+          const drugName = result.openfda?.brand_name?.[0] || result.openfda?.generic_name?.[0] || null;
+          if (drugName) {
+            return res.json({
+              drug_name: drugName,
+              generic_name: result.openfda?.generic_name?.[0] || null,
+              manufacturer: result.openfda?.manufacturer_name?.[0] || null
+            });
+          }
+        }
+      } catch (innerErr) {
+        if (innerErr.response?.status !== 404) throw innerErr;
+      }
+    }
+
+    res.json({ drug_name: null, message: 'No drug found for this barcode. Try entering the drug name instead.' });
+  } catch (err) {
+    if (err.response?.status === 429) {
+      return res.status(429).json({ error: 'Rate limit reached. Please wait and try again.' });
+    }
+    console.error('Barcode lookup error:', err.message);
+    res.status(502).json({ error: 'Unable to look up barcode. Please try again.' });
+  }
+});
+
 // ─── Health check ───
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', server: SERVER_ID, timestamp: new Date().toISOString() });
